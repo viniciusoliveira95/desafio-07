@@ -1,7 +1,11 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import { FlatList, View } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import api from '../../services/api';
+import { formatPrice } from '../../util/format';
+import * as CartActions from '../../store/modules/cart/actions';
 
 import {
   ProductContainer,
@@ -14,80 +18,60 @@ import {
   AddButtonText,
 } from './styles';
 
-export default class Main extends Component {
-  state = {
-    products: [
-      {
-        id: 1,
-        title: 'Tênis de Caminhada Leve Confortável',
-        price: 179.9,
-        image:
-          'https://rocketseat-cdn.s3-sa-east-1.amazonaws.com/modulo-redux/tenis1.jpg',
-      },
-      {
-        id: 2,
-        title: 'Tênis VR Caminhada Confortável Detalhes Couro Masculino',
-        price: 139.9,
-        image:
-          'https://rocketseat-cdn.s3-sa-east-1.amazonaws.com/modulo-redux/tenis2.jpg',
-      },
-      {
-        id: 3,
-        title: 'Tênis Adidas Duramo Lite 2.0',
-        price: 219.9,
-        image:
-          'https://rocketseat-cdn.s3-sa-east-1.amazonaws.com/modulo-redux/tenis3.jpg',
-      },
-      {
-        id: 5,
-        title: 'Tênis VR Caminhada Confortável Detalhes Couro Masculino',
-        price: 139.9,
-        image:
-          'https://rocketseat-cdn.s3-sa-east-1.amazonaws.com/modulo-redux/tenis2.jpg',
-      },
-      {
-        id: 6,
-        title: 'Tênis Adidas Duramo Lite 2.0',
-        price: 219.9,
-        image:
-          'https://rocketseat-cdn.s3-sa-east-1.amazonaws.com/modulo-redux/tenis3.jpg',
-      },
-      {
-        id: 4,
-        title: 'Tênis de Caminhada Leve Confortável',
-        price: 179.9,
-        image:
-          'https://rocketseat-cdn.s3-sa-east-1.amazonaws.com/modulo-redux/tenis1.jpg',
-      },
-    ],
-  };
+export default function Main() {
+  const [products, setProducts] = useState([]);
 
-  render() {
-    const { products } = this.state;
+  const amount = useSelector(state =>
+    state.cart.reduce((sumAmount, product) => {
+      sumAmount[product.id] = product.amount;
 
-    return (
-      <View>
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={products}
-          keyExtractor={item => String(item.id)}
-          renderItem={({ item }) => (
-            <ProductContainer>
-              <ProductImage source={{ uri: item.image }} />
-              <ProductTitle>{item.title}</ProductTitle>
-              <ProuductPrice>{item.price}</ProuductPrice>
-              <AddButton>
-                <ProductAmount>
-                  <Icon name="add-shopping-cart" color="#FFF" size={20} />
-                  <ProductAmountText>1</ProductAmountText>
-                </ProductAmount>
-                <AddButtonText>ADICIONAR</AddButtonText>
-              </AddButton>
-            </ProductContainer>
-          )}
-        />
-      </View>
-    );
+      return sumAmount;
+    }, {})
+  );
+
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    async function loadProducts() {
+      const response = await api.get('products');
+
+      const data = response.data.map(product => ({
+        ...product,
+        priceFormatted: formatPrice(product.price),
+      }));
+
+      setProducts(data);
+    }
+
+    loadProducts();
+  }, []);
+
+  function handleAddProduct(id) {
+    dispatch(CartActions.addToCartRequest(id));
   }
+
+  return (
+    <View>
+      <FlatList
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        data={products}
+        keyExtractor={item => String(item.id)}
+        renderItem={({ item }) => (
+          <ProductContainer>
+            <ProductImage source={{ uri: item.image }} />
+            <ProductTitle>{item.title}</ProductTitle>
+            <ProuductPrice>{item.priceFormatted}</ProuductPrice>
+            <AddButton onPress={() => handleAddProduct(item.id)}>
+              <ProductAmount>
+                <Icon name="add-shopping-cart" color="#FFF" size={20} />
+                <ProductAmountText>{amount[item.id] || 0}</ProductAmountText>
+              </ProductAmount>
+              <AddButtonText>ADICIONAR</AddButtonText>
+            </AddButton>
+          </ProductContainer>
+        )}
+      />
+    </View>
+  );
 }
